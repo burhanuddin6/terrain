@@ -90,7 +90,7 @@ function init() {
 
     console.log("vertex shader source: ", vshader_tag)
     console.log("fragment shader source: ", fshader_tag)
-    gl = WebGLUtils.setupWebGL(canvas);
+    gl = canvas.getContext("webgl2");
     if (!gl) { alert("WebGL isn't available"); }
 
     gl.viewport(0, 0, canvas.width, canvas.height);
