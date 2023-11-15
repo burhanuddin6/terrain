@@ -1,5 +1,42 @@
+const URL = `${window.location.protocol}//${window.location.host}`
+const fShaderSrcFile = `${URL}/fshader.glsl`
+const vShaderSrcFile = `${URL}/vshader.glsl`
+
+const  vertexShaderSource = await (await fetch(vShaderSrcFile)).text()
+const  fragmentShaderSource = await (await fetch(fShaderSrcFile)).text()
+
+
+function createShader(gl, type, source) {
+    var shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    var success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+    if (success) {
+        return shader;
+    }
+
+    console.log(gl.getShaderInfoLog(shader));  // eslint-disable-line
+    gl.deleteShader(shader);
+    return undefined;
+}
+
+function createProgram(gl, vertexShader, fragmentShader) {
+    var program = gl.createProgram();
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+    var success = gl.getProgramParameter(program, gl.LINK_STATUS);
+    if (success) {
+        return program;
+    }
+    console.log(gl.getProgramInfoLog(program));
+    gl.deleteProgram(program);
+    return undefined;
+}
+
 let camera;
-let light;
+let light1, light2;
+let terrains = [];
 let program;
 
 let angle = 0.0;
@@ -8,8 +45,8 @@ let trackingMouse = false;
 let lastX = screen.width / 2, lastY = screen.height / 2
 let firstMouse = true
 
-let yaw = -320.0
-let pitch = -63.0
+let yaw = -320.0;
+let pitch = -63.0;
 
 let terrainHorMin = -1, terrainHorMax = 1;
 let terrainVertMin = -1, terrainVertMax = 1;
@@ -45,32 +82,14 @@ function stopMotion() {
     camera.reset();
 }
 
-function loadTextures(urls) {
-    let textures = [];
-
-    for (let i = 0; i < urls.length; i++) {
-        const texture = gl.createTexture();
-        const image = new Image();
-
-        image.onload = function () {
-            gl.bindTexture(gl.TEXTURE_2D, texture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-            gl.generateMipmap(gl.TEXTURE_2D);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER,
-                gl.LINEAR_MIPMAP_LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        };
-
-        image.src = urls[i][1];
-        textures.push([urls[i][0], texture]);
-    }
-
-    return textures;
-}
-
-window.onload = function init() {
+function init() {
     canvas = document.getElementById("gl-canvas");
 
+    const vshader_tag = document.getElementById("vertex-shader")
+    const fshader_tag = document.getElementById("fragment-shader")
+
+    console.log("vertex shader source: ", vshader_tag)
+    console.log("fragment shader source: ", fshader_tag)
     gl = WebGLUtils.setupWebGL(canvas);
     if (!gl) { alert("WebGL isn't available"); }
 
@@ -79,21 +98,11 @@ window.onload = function init() {
 
     gl.enable(gl.DEPTH_TEST);
 
-    program = initShaders(gl, "vertex-shader", "fragment-shader");
+    console.log("vertex shader source: ", vertexShaderSource);
+    var vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+    var fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+    program = createProgram(gl, vertexShader, fragmentShader);
     gl.useProgram(program);
-
-    var textures = loadTextures([
-        ['grass_diff', 'http://localhost:8000/textures/grass_diff.jpg'],
-        ['snow_diff', 'http://localhost:8000/textures/snow_diff.jpg'],
-        ['rock_diff', 'http://localhost:8000/textures/rock_diff.jpg'],
-        ['sand_diff', 'http://localhost:8000/textures/sand_diff.jpg'],
-        ['beach_diff', 'http://localhost:8000/textures/beach_diff.jpg'],
-        ['forest_diff', 'http://localhost:8000/textures/forest_diff.jpg'],
-        ['water_diff', 'http://localhost:8000/textures/water_diff.jpg'],
-        ['snow_spec', 'http://localhost:8000/textures/snow_spec.jpg'],
-        ['rock_spec', 'http://localhost:8000/textures/rock_spec.jpg'],
-        ['sand_spec', 'http://localhost:8000/textures/sand_spec.jpg'],
-    ]);
 
     camera = new Camera(program, vec3(-1800, 3650, -1200), vec3(0, 0, 0), vec3(0, 1, 0));
 
@@ -107,41 +116,32 @@ window.onload = function init() {
     light2.intensity.diffuse = vec3(0.9, 0.6, 0.3);
     light2.intensity.specular = vec3(0.5, 0.75, 1.0);
 
-    for (var i = 0; i < textures.length; ++i) {
-        let textureName = 'Tex_' + textures[i][0];
-        gl.activeTexture(gl.TEXTURE0 + i);
-        gl.bindTexture(gl.TEXTURE_2D, textures[i][1]);
-        gl.uniform1i(gl.getUniformLocation(program, textureName), i);
-    }
-
-    terrain1 = new Terrain(program, -1, -1, 256, 800.0);
+    let terrain1 = new Terrain(program, -1, -1, 256, 800.0);
     terrain1.init();
 
-    terrain2 = new Terrain(program, 1, -1, 256, 800.0);
+    let terrain2 = new Terrain(program, 1, -1, 256, 800.0);
     terrain2.init();
 
-    terrain3 = new Terrain(program, 0, -1, 256, 800.0);
+    let terrain3 = new Terrain(program, 0, -1, 256, 800.0);
     terrain3.init();
 
-    terrain4 = new Terrain(program, -1, 0, 256, 800.0);
+    let terrain4 = new Terrain(program, -1, 0, 256, 800.0);
     terrain4.init();
 
-    terrain5 = new Terrain(program, 0, 0, 256, 800.0);
+    let terrain5 = new Terrain(program, 0, 0, 256, 800.0);
     terrain5.init();
 
-    terrain6 = new Terrain(program, 1, 0, 256, 800.0);
+    let terrain6 = new Terrain(program, 1, 0, 256, 800.0);
     terrain6.init();
 
-    terrain7 = new Terrain(program, 0, 1, 256, 800.0);
+    let terrain7 = new Terrain(program, 0, 1, 256, 800.0);
     terrain7.init();
 
-    terrain8 = new Terrain(program, -1, 1, 256, 800.0);
+    let terrain8 = new Terrain(program, -1, 1, 256, 800.0);
     terrain8.init();
 
-    terrain9 = new Terrain(program, 1, 1, 256, 800.0);
+    let terrain9 = new Terrain(program, 1, 1, 256, 800.0);
     terrain9.init();
-
-    terrains = [];
 
     terrains.push(
         terrain1,
@@ -183,17 +183,16 @@ window.onload = function init() {
     }
 
     window.onmousemove = function (event) {
-        xPos = event.screenX;
-        yPos = event.screenY;
-
+        let xPos = event.screenX;
+        let yPos = event.screenY;
         if (firstMouse) {
             lastX = xPos;
             lastY = yPos;
             firstMouse = false
         }
 
-        xOffset = xPos - lastX;
-        yOffset = lastY - yPos;
+        let xOffset = xPos - lastX;
+        let yOffset = lastY - yPos;
         lastX = xPos;
         lastY = yPos;
 
@@ -215,7 +214,8 @@ window.onload = function init() {
                 Math.sin(radians(pitch)),
                 Math.sin(radians(yaw)) * Math.cos(radians(pitch))
             )
-
+            console.log(front)
+            console.log()
             camera.front = normalize(front)
         } else {
             camera.moveTrackball(xOffset, yOffset);
@@ -235,52 +235,11 @@ window.onload = function init() {
 
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    // Procedural generation implementation
-    // Do not run under any circumstances
-
-    // if (camera.position[0] > terrainHorMax * 800.0) {
-    //     terrainHorMax++;
-    //     for (let vertIndex = terrainVertMin; vertIndex <= terrainVertMax; vertIndex++) {
-    //         let newTerrainTile = new Terrain(program, terrainHorMax, vertIndex, 256, 800.0);
-    //         newTerrainTile.init();
-    //         terrains.push(newTerrainTile);
-    //     }
-    // }
-
-    // if (camera.position[0] < terrainHorMin * 800.0) {
-    //     terrainHorMin--;
-    //     for (let vertIndex = terrainVertMin; vertIndex <= terrainVertMax; vertIndex++) {
-    //         let newTerrainTile = new Terrain(program, terrainHorMin, vertIndex, 256, 800.0);
-    //         newTerrainTile.init();
-    //         terrains.push(newTerrainTile);
-    //     }
-    // }
-
-    // if (camera.position[2] > terrainVertMax * 800.0) {
-    //     terrainVertMax++;
-    //     for (let horIndex = terrainHorMin; horIndex <= terrainHorMax; horIndex++) {
-    //         let newTerrainTile = new Terrain(program, horIndex, terrainVertMax, 256, 800.0);
-    //         newTerrainTile.init();
-    //         terrains.push(newTerrainTile);
-    //     }
-    // }
-
-    // if (camera.position[2] < terrainVertMin * 800.0) {
-    //     terrainVertMin--;
-    //     for (let horIndex = terrainHorMin; horIndex <= terrainHorMax; horIndex++) {
-    //         let newTerrainTile = new Terrain(program, horIndex, terrainVertMin, 256, 800.0);
-    //         newTerrainTile.init();
-    //         terrains.push(newTerrainTile);
-    //     }
-    // }
-
     light1.render();
     light2.render();
-
     terrains.forEach(terrain => terrain.render());
-
     camera.render(trackingMouse);
-
     requestAnimFrame(render);
 }
+
+init();
