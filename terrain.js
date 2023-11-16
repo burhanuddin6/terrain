@@ -22,7 +22,7 @@ class Terrain extends _3DObject {
         if (x < 0 || x >= vertexCount || y < 0 || y >= vertexCount) {
             return 0.0;
         }
-
+        console.log()
         return this.MAX_HEIGHT * generateHeight(x + this.gridX * vertexCount, y + this.gridZ * vertexCount, vertexCount, vertexCount);
     }
 

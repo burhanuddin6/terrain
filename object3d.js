@@ -36,10 +36,10 @@ class _3DObject {
         this.indices = [];
         this.normals = [];
         this.textureCoords = [];
-        this.textures = textures;
         this.position = position;
         this.matModel = mat4();
         this.time = 0.0;
+        this.textures = textures;
     }
 
     loadData() {

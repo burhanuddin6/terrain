@@ -237,7 +237,10 @@ function render() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     light1.render();
     light2.render();
-    terrains.forEach(terrain => terrain.render());
+    terrains.forEach(terrain => {
+        console.log(terrain.textures)
+        return terrain.render()
+    });
     camera.render(trackingMouse);
     requestAnimFrame(render);
 }
